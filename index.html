@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>MiniTube</title>
+
+<style>
+
+body{margin:0;font-family:system-ui,Arial,sans-serif;background:#f9f9f9;color:#111}
+
+header{display:flex;gap:10px;align-items:center;padding:12px 16px;background:#fff;border-bottom:1px solid #ccc;position:sticky;top:0;z-index:10}
+
+.brand{font-weight:700;font-size:20px}
+
+#search{flex:1;padding:8px 10px;border-radius:6px;border:1px solid #ddd}
+
+button{padding:8px 12px;border-radius:6px;border:1px solid #ccc;background:#fff;cursor:pointer}
+
+main{padding:18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+
+.card{background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);cursor:pointer;transition:transform 0.12s}
+
+.card:hover{transform:translateY(-4px)}
+
+.thumb{width:100%;height:140px;object-fit:cover;background:#ddd;display:block}
+
+.meta{padding:8px 10px}
+
+.meta h4{margin:0 0 4px;font-size:15px;line-height:1.2}
+
+.meta p{margin:0;color:#666;font-size:13px}
+
+.channel-name{color:#065fd4;cursor:pointer;font-weight:500}
+
+.verified{display:inline-block;background:#065fd4;color:white;font-size:10px;padding:1px 4px;margin-left:4px;border-radius:2px;font-weight:700;vertical-align:middle;}
+
+#modal{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:50}
+
+.modalCard{width:90%;max-width:900px;background:#fff;border-radius:8px;overflow:hidden}
+
+.playerWrap{background:#000;display:flex;align-items:center;justify-content:center;height:480px;position:relative}
+
+iframe{width:100%;height:100%;}
+
+.closeBtn{position:absolute;right:12px;top:12px;background:transparent;border:0;color:#fff;font-size:26px;cursor:pointer;z-index:10}
+
+.channelPage{padding:18px;display:none}
+
+.channelHeader{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+
+.channelHeader img{width:80px;height:80px;border-radius:50%;object-fit:cover;background:#ddd}
+
+.channelInfo{display:flex;flex-direction:column}
+
+.channelInfo h2{margin:0;font-size:20px;display:flex;align-items:center;gap:6px}
+
+.channelInfo p{margin:2px 0 0;color:#666;font-size:14px}
+
+.subscribeBtn{padding:6px 12px;border-radius:4px;border:1px solid #065fd4;background:#065fd4;color:#fff;cursor:pointer;font-weight:600;width:120px;text-align:center}
+
+#profileBtn{margin-left:12px;border-radius:50%;width:40px;height:40px;cursor:pointer;overflow:hidden;border:2px solid #065fd4}
+
+#profileBtn img{width:100%;height:100%;object-fit:cover}
+
+.uploadBtn{padding:6px 12px;border-radius:4px;border:1px solid #065fd4;background:#065fd4;color:#fff;cursor:pointer;font-weight:600;margin-bottom:12px}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+
+  <div class="brand">MiniTube</div>
+
+  <input id="search" placeholder="Search videos or channels..." />
+
+  <div id="profileBtn" title="MiniTube"><img src="https://via.placeholder.com/88.png?text=MiniTube" alt="MiniTube"></div>
+
+</header>
+
+<main id="grid"></main>
+
+<div id="modal">
+
+  <div class="modalCard">
+
+    <div class="playerWrap" id="playerWrap">
+
+      <button class="closeBtn" id="closeModalBtn">✕</button>
+
+    </div>
+
+    <div class="meta" style="padding:12px;">
+
+      <div id="modalTitle" style="font-weight:600;font-size:16px;"></div>
+
+      <div id="modalChannel" class="channel-name" style="margin-top:4px;"></div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<div id="channelPage" class="channelPage"></div>
+
+<script>
+
+// -------------------- DATA --------------------
+
+const channels = [
+
+  {name:'MiniTube',subs:5000,profile:'https://via.placeholder.com/88.png?text=MiniTube'},
+
+  {name:'Rick Astley',subs:35000000,profile:'https://yt3.ggpht.com/ytc/AKedOLQ8wVZYUzK1SPGZs7w5G4u4o6rOa2l6c33Q=s88-c-k-c0x00ffffff-no-rj'},
+
+  {name:'Ray William Johnson',subs:2000000,profile:'https://yt3.ggpht.com/ytc/AKedOLSfZ2fHxqtrPCrB1HgXvD3XZqLwMDsY-h0w=s88-c-k-c0x00ffffff-no-rj'},
+
+  {name:'Demo Channel',subs:8500,profile:'https://via.placeholder.com/88.png?text=Demo'},
+
+  {name:'User',subs:100,profile:'https://via.placeholder.com/88.png?text=User'},
+
+  {name:'Tech World',subs:120000,profile:'https://via.placeholder.com/88.png?text=Tech'}
+
+];
+
+// Verified channels (≥100k subs) + MiniTube always verified
+
+channels.forEach(c => c.verified = (c.subs >= 100000 || c.name==='MiniTube'));
+
+// -------------------- VIDEOS --------------------
+
+let videos = [];
+
+const sampleVideoIDs = [
+
+  'dQw4w9WgXcQ','aBcDeFgHiJk','xvFZjo5PgG0','9bZkp7q19f0','3JZ_D3ELwOQ',
+
+  'L_jWHffIx5E','eVTXPUF4Oz4','hY7m5jjJ9mM','kffacxfA7G4','RgKAFK5djSk',
+
+  'uelHwf8o7_U','fLexgOxsZu0','fJ9rUzIMcZQ','OPf0YbXqDm0','CevxZvSJLk8',
+
+  'YQHsXMglC9A','60ItHLz5WEA','tAGnKpE4NCI','VbfpW0pbvaU','2Vv-BfVoq4g'
+
+];
+
+// Assign originalOwner as "Demo Channel" or "User"
+
+channels.forEach(ch=>{
+
+  for(let i=1;i<=40;i++){
+
+    const videoId = sampleVideoIDs[(i-1) % sampleVideoIDs.length];
+
+    videos.push({
+
+      id: ch.name.replace(/\s+/g,'')+i,
+
+      title: `${ch.name} Video ${i}`,
+
+      channel: ch.name,
+
+      originalOwner: i % 2 === 0 ? 'Demo Channel' : 'User',
+
+      subs: ch.subs,
+
+      profile: ch.profile,
+
+      videoId: videoId
+
+    });
+
+  }
+
+});
+
+const currentUser = channels.find(c=>c.name==='MiniTube');
+
+let currentFilterChannel = null;
+
+// -------------------- DOM --------------------
+
+const grid = document.getElementById('grid');
+
+const searchInput = document.getElementById('search');
+
+const modal = document.getElementById('modal');
+
+const playerWrap = document.getElementById('playerWrap');
+
+const modalTitle = document.getElementById('modalTitle');
+
+const modalChannel = document.getElementById('modalChannel');
+
+const closeModalBtn = document.getElementById('closeModalBtn');
+
+const channelPage = document.getElementById('channelPage');
+
+const profileBtn = document.getElementById('profileBtn');
+
+// -------------------- FUNCTIONS --------------------
+
+function renderVideos(list){
+
+  grid.innerHTML='';
+
+  list.forEach(v=>{
+
+    const card = document.createElement('div');
+
+    card.className='card';
+
+    const ownerChannel = channels.find(c => c.name === v.originalOwner);
+
+    const verified = ownerChannel && ownerChannel.verified ? '<span class="verified">✔</span>':'';
+
+    card.innerHTML = `
+
+      <img class="thumb" src="${v.videoId?`https://img.youtube.com/vi/${v.videoId}/hqdefault.jpg`:'https://via.placeholder.com/480x270.png?text=Demo+Video'}" />
+
+      <div class="meta">
+
+        <h4>${v.title}</h4>
+
+        <p><span class="channel-name">${v.originalOwner}</span>${verified}</p>
+
+      </div>
+
+    `;
+
+    card.querySelector('.channel-name').onclick = e=>{
+
+      e.stopPropagation();
+
+      showChannelPage(v.originalOwner);
+
+    };
+
+    card.onclick = ()=>openModal(v.id);
+
+    grid.appendChild(card);
+
+  });
+
+}
+
+function showChannelPage(channel){
+
+  currentFilterChannel = channel;
+
+  const vids = videos.filter(v=>v.originalOwner===channel);
+
+  const ch = channels.find(c=>c.name===channel) || {profile:'https://via.placeholder.com/88.png?text='+channel,subs:0,verified:false};
+
+  const verified = ch.verified ? '<span class="verified">✔</span>':'';
+
+  channelPage.innerHTML = `
+
+    <div class="channelHeader">
+
+      <img src="${ch.profile}" alt="${channel} profile">
+
+      <div class="channelInfo">
+
+        <h2>${channel}${verified}</h2>
+
+        <p>${ch.subs.toLocaleString()} subscribers</p>
+
+        <button class="subscribeBtn" onclick="toggleSubscribe(this)">Subscribe</button>
+
+      </div>
+
+    </div>
+
+    ${(channel===currentUser.name)?'<button class="uploadBtn" onclick="uploadVideo()">Upload Video</button>':''}
+
+    <div id="channelVideos" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;"></div>
+
+    <button onclick="closeChannel()" style="margin-top:12px;">Back to Home</button>
+
+  `;
+
+  const cv = document.getElementById('channelVideos');
+
+  vids.forEach(v=>{
+
+    const card = document.createElement('div');
+
+    card.className='card';
+
+    const ownerChannel = channels.find(c => c.name === v.originalOwner);
+
+    const verifiedVid = ownerChannel && ownerChannel.verified ? '<span class="verified">✔</span>':'';
+
+    card.innerHTML = `
+
+      <img class="thumb" src="${v.videoId?`https://img.youtube.com/vi/${v.videoId}/hqdefault.jpg`:'https://via.placeholder.com/480x270.png?text=Demo+Video'}" />
+
+      <div class="meta">
+
+        <h4>${v.title}</h4>
+
+        <p>${v.originalOwner}${verifiedVid}</p>
+
+      </div>
+
+    `;
+
+    card.onclick = ()=>openModal(v.id);
+
+    cv.appendChild(card);
+
+  });
+
+  grid.style.display='none';
+
+  channelPage.style.display='block';
+
+}
+
+function closeChannel(){
+
+  channelPage.style.display='none';
+
+  grid.style.display='grid';
+
+  currentFilterChannel = null;
+
+}
+
+function toggleSubscribe(btn){
+
+  if(btn.textContent==='Subscribe') btn.textContent='Subscribed';
+
+  else btn.textContent='Subscribe';
+
+}
+
+function uploadVideo(){
+
+  const title = prompt('Enter video title:');
+
+  if(!title) return;
+
+  const newId = 'v'+(videos.length+1);
+
+  videos.push({id:newId,title:title,channel:currentUser.name,originalOwner:currentUser.name,subs:currentUser.subs,profile:currentUser.profile,videoId:null});
+
+  showChannelPage(currentUser.name);
+
+}
+
+function openModal(id){
+
+  const v = videos.find(x=>x.id===id);
+
+  if(!v) return;
+
+  modal.style.display='flex';
+
+  modalTitle.textContent = v.title;
+
+  const ownerChannel = channels.find(c => c.name === v.originalOwner);
+
+  const verified = ownerChannel && ownerChannel.verified ? '<span class="verified">✔</span>':'';
+
+  modalChannel.innerHTML = `${v.originalOwner}${verified}`;
+
+  
+
+  // Clear previous iframe / placeholder
+
+  playerWrap.querySelectorAll('iframe, div.demoPlaceholder').forEach(e=>e.remove());
+
+  
+
+  if(v.videoId){
+
+    const iframe = document.createElement('iframe');
+
+    iframe.src=`https://www.youtube.com/embed/${v.videoId}?autoplay=1`;
+
+    iframe.frameBorder='0';
+
+    iframe.allowFullscreen=true;
+
+    playerWrap.appendChild(iframe);
+
+  } else {
+
+    const ph = document.createElement('div');
+
+    ph.className='demoPlaceholder';
+
+    ph.style.color='#fff';
+
+    ph.style.textAlign='center';
+
+    ph.style.padding='20px';
+
+    ph.textContent='Demo placeholder video (no YouTube embed).';
+
+    playerWrap.appendChild(ph);
+
+  }
+
+}
+
+// Close modal when clicking close button or outside modal
+
+closeModalBtn.onclick = closeModal;
+
+modal.onclick = (e) => {
+
+  if(e.target === modal) closeModal();
+
+}
+
+function closeModal(){ 
+
+  modal.style.display='none'; 
+
+  playerWrap.querySelectorAll('iframe, div.demoPlaceholder').forEach(e=>e.remove());
+
+}
+
+searchInput.addEventListener('input', ()=>{
+
+  const q = searchInput.value.toLowerCase();
+
+  const filtered = videos.filter(v=>{
+
+    return v.title.toLowerCase().includes(q) || v.originalOwner.toLowerCase().includes(q);
+
+  });
+
+  if(currentFilterChannel) renderVideos(filtered.filter(v=>v.originalOwner===currentFilterChannel));
+
+  else renderVideos(filtered);
+
+});
+
+profileBtn.onclick = ()=>showChannelPage(currentUser.name);
+
+renderVideos(videos);
+
+</script>
+
+</body>
+
+</html>
